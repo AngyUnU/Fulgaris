@@ -92,7 +92,7 @@
                 <div class="p-5 border-b border-slate-100 flex items-center justify-between">
                     <div>
                         <h3 class="font-bold text-base text-[#2F295B]">Actividades del Proyecto</h3>
-                        <p class="text-xs text-slate-500">Plan de trabajo, integrantes asignados y porcentaje de avance</p>
+                        <p class="text-xs text-slate-500">Plan de trabajo, responsables y estado de cada actividad</p>
                     </div>
                 </div>
 
@@ -104,7 +104,6 @@
                                 <th class="p-4">Responsables</th>
                                 <th class="p-4">Prioridad</th>
                                 <th class="p-4">Compromiso</th>
-                                <th class="p-4">Progreso</th>
                                 <th class="p-4">Estado</th>
                                 <th class="p-4 text-right">Acciones</th>
                             </tr>
@@ -121,6 +120,7 @@
                                     $statColors = [
                                         'completada' => 'text-emerald-700 bg-emerald-50 border-emerald-200',
                                         'en_progreso' => 'text-blue-700 bg-blue-50 border-blue-200',
+                                        'en_revision' => 'text-purple-700 bg-purple-50 border-purple-200',
                                         'pendiente' => 'text-amber-700 bg-amber-50 border-amber-200',
                                         'atrasada' => 'text-red-700 bg-red-50 border-red-200',
                                     ];
@@ -149,17 +149,9 @@
                                     <td class="p-4 font-medium {{ $act->is_overdue ? 'text-red-600 font-bold' : '' }}">
                                         {{ $act->due_date ? $act->due_date->format('d/m/Y') : 'N/D' }}
                                     </td>
-                                    <td class="p-4 w-36">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div class="h-full bg-[#1573F7] rounded-full" style="width: {{ $act->progress }}%"></div>
-                                            </div>
-                                            <span class="font-bold text-[11px] w-8 text-right">{{ $act->progress }}%</span>
-                                        </div>
-                                    </td>
                                     <td class="p-4">
                                         <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border {{ $statColors[$act->status] ?? 'bg-slate-100' }}">
-                                            {{ ucfirst(str_replace('_', ' ', $act->status)) }}
+                                            {{ $act->status === 'pendiente' ? 'Por empezar' : ucfirst(str_replace('_', ' ', $act->status)) }}
                                         </span>
                                     </td>
                                     <td class="p-4 text-right">
@@ -170,7 +162,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="p-8 text-center text-slate-400">
+                                    <td colspan="6" class="p-8 text-center text-slate-400">
                                         No hay actividades registradas en este proyecto aún.
                                     </td>
                                 </tr>
@@ -350,30 +342,29 @@
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha de compromiso</label>
                         <input type="date" name="due_date" class="w-full text-xs rounded-lg border-slate-200">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Progreso (%)</label>
-                        <input type="number" name="progress" min="0" max="100" value="0" required class="w-full text-xs rounded-lg border-slate-200">
-                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
                     <select name="status" required class="w-full text-xs rounded-lg border-slate-200">
-                        <option value="pendiente">Pendiente</option>
+                        <option value="pendiente">Por empezar</option>
                         <option value="en_progreso">En progreso</option>
+                        <option value="en_revision">En revisión</option>
                         <option value="completada">Completada</option>
                         <option value="atrasada">Atrasada</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Responsables asignados (Integrantes)</label>
-                    <select name="assignees[]" multiple class="w-full text-xs rounded-lg border-slate-200 h-24">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                        Encargados de la actividad * <span class="text-red-500 font-bold">(Mínimo 1 obligatorio)</span>
+                    </label>
+                    <select name="assignees[]" id="project-create-assignees" multiple required class="w-full text-xs rounded-lg border-slate-200 h-28 focus:border-[#1573F7] focus:ring-[#1573F7]">
                         @foreach ($users as $u)
                             <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->role?->label }})</option>
                         @endforeach
                     </select>
-                    <p class="text-[10px] text-slate-400 mt-1">Mantén presionado Ctrl (o Cmd) para seleccionar varios integrantes.</p>
+                    <p class="text-[10px] text-slate-400 mt-1">Mantén presionado Ctrl (o Cmd) para seleccionar uno o varios integrantes.</p>
                 </div>
 
                 <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">

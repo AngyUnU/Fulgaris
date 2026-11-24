@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ActivityComment;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -44,7 +46,6 @@ class ProjectController extends Controller
             'leader',
             'creator',
             'activities.assignees',
-            'activities.comments.user',
             'agreements.responsible',
         ]);
 
@@ -70,8 +71,7 @@ class ProjectController extends Controller
             'activities.*.title' => ['required', 'string', 'max:255'],
             'activities.*.description' => ['nullable', 'string'],
             'activities.*.priority' => ['required', 'in:baja,media,alta,urgente'],
-            'activities.*.status' => ['required', 'in:pendiente,en_progreso,completada,atrasada'],
-            'activities.*.progress' => ['required', 'integer', 'min:0', 'max:100'],
+            'activities.*.status' => ['required', 'in:pendiente,en_progreso,en_revision,completada,atrasada'],
             'activities.*.due_date' => ['nullable', 'date'],
             'activities.*.assignees' => ['nullable', 'array'],
             'activities.*.assignees.*' => ['integer', 'exists:users,id'],
@@ -90,16 +90,12 @@ class ProjectController extends Controller
             ]);
 
             foreach ($activities as $activityData) {
-                $isComplete = $activityData['progress'] == 100;
                 $activity = $project->activities()->create([
                     'title' => $activityData['title'],
                     'description' => $activityData['description'] ?? null,
                     'priority' => $activityData['priority'],
-                    'status' => $isComplete
-                        ? 'completada'
-                        : ($activityData['status'] === 'completada' ? 'en_progreso' : $activityData['status']),
-                    'progress' => $activityData['progress'],
-                    'completed_at' => $isComplete ? now() : null,
+                    'status' => $activityData['status'],
+                    'completed_at' => $activityData['status'] === 'completada' ? now() : null,
                     'due_date' => $activityData['due_date'] ?? null,
                     'created_by' => auth()->id(),
                 ]);
@@ -140,6 +136,10 @@ class ProjectController extends Controller
             ]);
         }
 
+        $evidencePaths = ActivityComment::whereHas('activity', function ($query) use ($project) {
+            $query->where('project_id', $project->id);
+        })->whereNotNull('evidence_path')->pluck('evidence_path');
+        Storage::disk('local')->delete($evidencePaths->all());
         $project->delete();
 
         return redirect()->route('projects.index')->with('status', 'Proyecto eliminado.');

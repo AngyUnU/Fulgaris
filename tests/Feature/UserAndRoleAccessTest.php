@@ -146,7 +146,6 @@ class UserAndRoleAccessTest extends TestCase
                 'title' => 'Existing activity',
                 'priority' => 'media',
                 'status' => 'pendiente',
-                'progress' => 0,
             ]);
 
             $this->actingAs($user)->post('/activities', [
@@ -154,7 +153,7 @@ class UserAndRoleAccessTest extends TestCase
                 'title' => "{$label} activity",
                 'priority' => 'media',
                 'status' => 'pendiente',
-                'progress' => 0,
+                'assignees' => [$user->id],
             ])->assertRedirect();
 
             $this->assertDatabaseHas('activities', ['title' => "{$label} activity"]);
@@ -163,7 +162,7 @@ class UserAndRoleAccessTest extends TestCase
                 'title' => "{$label} updated",
                 'priority' => 'media',
                 'status' => 'en_progreso',
-                'progress' => 50,
+                'assignees' => [$user->id],
             ])->assertRedirect();
 
             $this->assertDatabaseHas('activities', ['id' => $activity->id, 'title' => "{$label} updated"]);
@@ -173,7 +172,6 @@ class UserAndRoleAccessTest extends TestCase
                 'title' => "{$label} activity to delete",
                 'priority' => 'media',
                 'status' => 'pendiente',
-                'progress' => 0,
             ]);
 
             $this->actingAs($user)->delete("/activities/{$activity->id}", [
@@ -188,6 +186,67 @@ class UserAndRoleAccessTest extends TestCase
             ])->assertRedirect();
             $this->assertDatabaseMissing('activities', ['id' => $activity->id]);
         }
+    }
+
+    public function test_admin_can_delete_user_account_with_password_confirmation(): void
+    {
+        $devRole = $this->createRole('desarrollador_del');
+        $userToDelete = $this->createUser($devRole, 'to_delete@test.com');
+
+        $project = Project::create([
+            'code' => 'BP-LEAD-01',
+            'name' => 'Project with user',
+            'status' => 'planificacion',
+            'leader_id' => $userToDelete->id,
+            'created_by' => $this->admin->id,
+        ]);
+
+        $activity = Activity::create([
+            'project_id' => $project->id,
+            'title' => 'Assigned task',
+            'priority' => 'media',
+            'status' => 'pendiente',
+        ]);
+        $activity->assignees()->sync([$userToDelete->id]);
+
+        // Wrong password fails
+        $wrongPassResponse = $this->actingAs($this->admin)->delete("/users/{$userToDelete->id}", [
+            'admin_password' => 'wrong-pass',
+        ]);
+        $wrongPassResponse->assertSessionHasErrors('admin_password');
+        $this->assertDatabaseHas('users', ['id' => $userToDelete->id]);
+
+        // Correct password succeeds
+        $successResponse = $this->actingAs($this->admin)->delete("/users/{$userToDelete->id}", [
+            'admin_password' => 'password123',
+        ]);
+        $successResponse->assertRedirect(route('users.index'));
+        $this->assertDatabaseMissing('users', ['id' => $userToDelete->id]);
+
+        // Detached from activity and project leader set to null
+        $this->assertDatabaseMissing('activity_user', ['user_id' => $userToDelete->id]);
+        $this->assertNull($project->fresh()->leader_id);
+    }
+
+    public function test_admin_cannot_delete_their_own_account(): void
+    {
+        $response = $this->actingAs($this->admin)->delete("/users/{$this->admin->id}", [
+            'admin_password' => 'password123',
+        ]);
+        $response->assertSessionHasErrors('admin_password');
+        $this->assertDatabaseHas('users', ['id' => $this->admin->id]);
+    }
+
+    public function test_non_admin_users_cannot_delete_accounts(): void
+    {
+        $devRole = $this->createRole('dev_forbidden');
+        $normalUser = $this->createUser($devRole, 'normal@test.com');
+        $targetUser = $this->createUser($devRole, 'target@test.com');
+
+        $response = $this->actingAs($normalUser)->delete("/users/{$targetUser->id}", [
+            'admin_password' => 'password123',
+        ]);
+        $response->assertStatus(403);
     }
 
     private function createRole(string $name): Role

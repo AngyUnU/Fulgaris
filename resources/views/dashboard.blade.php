@@ -6,7 +6,7 @@
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#1573F7] border border-blue-200">
                         Plataforma Web
                     </span>
-                    <span class="text-xs text-slate-400">• BeTrack</span>
+                    <span class="text-xs text-slate-400">• ArkanA</span>
                 </div>
                 <h1 class="font-extrabold text-2xl text-[#2F295B] mt-1 tracking-tight">
                     Resumen de trabajo
@@ -122,12 +122,12 @@
                     </div>
                     <div>
                         <h3 class="font-bold text-sm text-[#2F295B]">Avance Global Consolidado</h3>
-                        <p class="text-xs text-slate-500">Promedio de avance registrado en todas las actividades de los proyectos.</p>
+                        <p class="text-xs text-slate-500">Porcentaje de actividades completadas en todos los proyectos.</p>
                     </div>
                 </div>
                 <div class="w-full md:w-1/2">
                     <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
-                        <span>Progreso general</span>
+                        <span>Actividades completadas</span>
                         <span class="font-bold text-[#1573F7]">{{ $overallProgress }}%</span>
                     </div>
                     <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -287,7 +287,7 @@
                                     <div class="flex items-start justify-between gap-2">
                                         <h5 class="font-bold text-xs text-slate-800 line-clamp-1">{{ $act->title }}</h5>
                                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ $isOverdue ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600' }}">
-                                            {{ $isOverdue ? 'Atrasada' : $act->progress.'%' }}
+                                            {{ $isOverdue ? 'Atrasada' : ($act->status === 'pendiente' ? 'Por empezar' : ucfirst(str_replace('_', ' ', $act->status))) }}
                                         </span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-0.5 truncate">{{ $act->project?->name }}</p>

@@ -18,7 +18,6 @@ class Activity extends Model
         'description',
         'priority',
         'status',
-        'progress',
         'start_date',
         'due_date',
         'completed_at',
@@ -29,7 +28,6 @@ class Activity extends Model
         'start_date' => 'date',
         'due_date' => 'date',
         'completed_at' => 'datetime',
-        'progress' => 'integer',
     ];
 
     public function project(): BelongsTo

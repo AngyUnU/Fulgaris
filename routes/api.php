@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\MobileSyncController;
+use App\Http\Controllers\ActivityController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,7 +21,8 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [MobileSyncController::class, 'me']);
         Route::get('/my-activities', [MobileSyncController::class, 'myActivities']);
-        Route::post('/activities/{activity}/progress', [MobileSyncController::class, 'updateProgress']);
+        Route::post('/activities/{activity}/status', [MobileSyncController::class, 'updateStatus']);
+        Route::get('/activity-comments/{comment}/evidence', [ActivityController::class, 'evidence']);
         Route::post('/logout', [MobileSyncController::class, 'logout']);
     });
 });

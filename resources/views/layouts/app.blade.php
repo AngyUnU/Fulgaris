@@ -5,12 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'BeTrack') }}</title>
-        <link rel="icon" type="image/png" href="{{ asset('images/betrack-logo.png') }}">
-
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
+        <title>{{ config('app.name', 'ArkanA') }}</title>
+        <link rel="icon" type="image/png" href="{{ asset('images/arkana-logo.png') }}">
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -64,12 +60,12 @@
             <footer class="bg-white border-t border-slate-200/80 py-4 mt-12 text-center text-xs text-slate-500">
                 <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
-                        <span class="font-bold text-[#2F295B]">BeTrack</span>
+                        <span class="font-bold text-[#2F295B]">ArkanA</span>
                         <span>•</span>
                         <span>Gestión de proyectos</span>
                     </div>
                     <div class="text-slate-400">
-                        Planifica • Avanza • Logra
+                        Agenda • Acuerdos • Análisis
                     </div>
                 </div>
             </footer>

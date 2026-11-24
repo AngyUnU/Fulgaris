@@ -5,30 +5,27 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'BeTrack') }}</title>
-        <link rel="icon" type="image/png" href="{{ asset('images/betrack-logo.png') }}">
-
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
+        <title>{{ config('app.name', 'ArkanA') }}</title>
+        <link rel="icon" type="image/png" href="{{ asset('images/arkana-logo.png') }}">
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-[#202124] antialiased bg-[#F8F9FC] min-h-screen flex flex-col justify-center items-center py-10 px-4 selection:bg-[#1573F7] selection:text-white">
         <div class="mb-4">
-            <a href="/" class="flex flex-col items-center gap-2">
-                <img src="{{ asset('images/betrack-logo.png') }}" alt="BeTrack" class="h-16 w-auto object-contain drop-shadow-sm">
-                <span class="text-xs font-semibold uppercase tracking-widest text-[#2F295B]">Gestión de proyectos</span>
+            <a href="/" class="flex flex-col items-center gap-1.5">
+                <img src="{{ asset('images/arkana-logo.png') }}" alt="ArkanA" class="h-14 w-auto object-contain rounded-xl shadow-xs">
+                <span class="text-base font-extrabold text-[#2F295B] tracking-tight">Arkan<span class="text-[#1573F7]">A</span></span>
+                <span class="text-[10px] text-slate-400">Agenda • Acuerdos • Análisis</span>
             </a>
         </div>
 
-        <div class="w-full sm:max-w-md bg-white border border-slate-200/90 shadow-sm rounded-2xl p-6 sm:p-8">
+        <div class="w-full sm:max-w-md bg-white border border-slate-200 rounded-lg p-6 sm:p-8">
             {{ $slot }}
         </div>
 
         <div class="mt-6 text-center text-xs text-slate-400">
-            Planifica • Avanza • Logra
+            Agenda • Acuerdos • Análisis
         </div>
     </body>
 </html>

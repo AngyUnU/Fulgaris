@@ -19,13 +19,15 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('activities', 0);
     }
 
-    public function test_welcome_page_describes_betrack_without_company_branding(): void
+    public function test_welcome_page_describes_arkana_with_about_us_section(): void
     {
         $response = $this->get('/');
 
         $response->assertOk()
-            ->assertSee('Qué puedes hacer con BeTrack')
+            ->assertSee('ArkanA')
+            ->assertSee('Qué puedes hacer')
             ->assertSee('Actualiza desde el móvil')
+            ->assertSee('Sobre Nosotros')
             ->assertDontSee('Fulgaris Technologies');
     }
 }

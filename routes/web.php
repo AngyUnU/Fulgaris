@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // 3. Actividades
     Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
+    Route::get('/activities/comments/{comment}/evidence', [ActivityController::class, 'evidence'])->name('activities.comments.evidence');
     Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store')->middleware('role:admin,lider,desarrollador,qa');
     Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update')->middleware('role:admin,lider,desarrollador,qa');
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy')->middleware('role:admin,lider,desarrollador,qa');
@@ -44,6 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/users', [UserController::class, 'index'])->name('users.index')->middleware('role:admin');
     Route::post('/users', [UserController::class, 'store'])->name('users.store')->middleware('role:admin');
     Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.role.update')->middleware('role:admin');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy')->middleware('role:admin');
 
     // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -91,13 +91,14 @@ class MobileSyncController extends Controller
     }
 
     /**
-     * Endpoint para que un integrante reporte el avance manualmente.
+     * Endpoint para que un integrante actualice el estado de una actividad.
      */
-    public function updateProgress(Request $request, Activity $activity): JsonResponse
+    public function updateStatus(Request $request, Activity $activity): JsonResponse
     {
         $validated = $request->validate([
-            'progress' => ['required', 'integer', 'min:0', 'max:100'],
+            'status' => ['required', 'in:pendiente,en_progreso,en_revision,completada,atrasada'],
             'comment' => ['nullable', 'string', 'max:1000'],
+            'evidence' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $user = $request->user();
@@ -107,30 +108,29 @@ class MobileSyncController extends Controller
         if (! $isAssigned && ! $user->hasRole(['admin', 'lider'])) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No tienes permisos para reportar avances en una actividad que no te ha sido asignada.',
+                'message' => 'No tienes permisos para actualizar una actividad que no te ha sido asignada.',
             ], 403);
         }
 
-        $isComplete = $validated['progress'] == 100;
         $activity->update([
-            'progress' => $validated['progress'],
-            'status' => $isComplete
-                ? 'completada'
-                : ($activity->status === 'completada' ? 'en_progreso' : $activity->status),
-            'completed_at' => $isComplete ? ($activity->completed_at ?? now()) : null,
+            'status' => $validated['status'],
+            'completed_at' => $validated['status'] === 'completada'
+                ? ($activity->completed_at ?? now())
+                : null,
         ]);
 
-        ActivityComment::create([
-            'activity_id' => $activity->id,
-            'user_id' => $user->id,
-            'comment' => $validated['comment'] ?? 'Avance actualizado desde la aplicación móvil.',
-            'progress_reported' => $validated['progress'],
-            'source' => 'mobile',
-        ]);
+        if (! empty($validated['comment']) || $request->hasFile('evidence')) {
+            ActivityComment::createWithEvidence([
+                'activity_id' => $activity->id,
+                'user_id' => $user->id,
+                'comment' => $validated['comment'] ?? 'Evidencia adjunta.',
+                'source' => 'mobile',
+            ], $request->file('evidence'));
+        }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Avance actualizado.',
+            'message' => 'Estado actualizado.',
             'activity' => $activity->fresh(['project', 'assignees']),
         ]);
     }

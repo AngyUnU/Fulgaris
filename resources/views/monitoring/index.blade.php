@@ -27,9 +27,9 @@
                         </svg>
                     </div>
                     <div>
-                        <h4 class="font-bold text-sm text-[#2F295B]">Centro de Sincronización BeTrack</h4>
+                        <h4 class="font-bold text-sm text-[#2F295B]">Centro de Sincronización ArkanA</h4>
                         <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                            Aquí se centralizan los reportes de avance y comentarios generados tanto por los integrantes desde la <strong>aplicación móvil</strong> (Ionic / Angular) como por los administradores en la <strong>plataforma web</strong>.
+                            Aquí se centralizan los cambios de estado, comentarios y evidencias enviados desde la <strong>aplicación móvil</strong> (Ionic / Angular) y la <strong>plataforma web</strong>.
                         </p>
                     </div>
                 </div>
@@ -55,7 +55,7 @@
                     <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
                         <div class="p-5 border-b border-slate-100 flex items-center justify-between">
                             <div>
-                                <h3 class="font-bold text-base text-[#2F295B]">Historial de Avances y Notas</h3>
+                                <h3 class="font-bold text-base text-[#2F295B]">Historial de Actividades y Notas</h3>
                                 <p class="text-xs text-slate-500">Comentarios de seguimiento registrados por el equipo</p>
                             </div>
                             <span class="text-xs font-semibold text-slate-400">Total: {{ $comments->total() }}</span>
@@ -91,11 +91,6 @@
                                                         Web
                                                     </span>
                                                 @endif
-                                                @if($comm->progress_reported !== null)
-                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                        {{ $comm->progress_reported }}%
-                                                    </span>
-                                                @endif
                                             </div>
                                             <span class="text-[10px] text-slate-400 block mt-0.5">{{ $comm->created_at->format('d/m/Y H:i') }}</span>
                                         </div>
@@ -105,6 +100,13 @@
                                     <div class="text-xs text-slate-700 bg-white/80 p-3 rounded-lg border border-slate-100 leading-relaxed font-normal">
                                         {{ $comm->comment }}
                                     </div>
+
+                                    @if($comm->evidence_path)
+                                        <a href="{{ route('activities.comments.evidence', $comm) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs font-semibold text-[#1573F7] hover:underline">
+                                            <span aria-hidden="true">↗</span>
+                                            Abrir evidencia: {{ $comm->evidence_name }}
+                                        </a>
+                                    @endif
 
                                     <!-- Activity context link -->
                                     @if($comm->activity)
@@ -139,7 +141,7 @@
                         <h4 class="font-bold text-sm text-[#2F295B] mb-1">Registrar Observación</h4>
                         <p class="text-xs text-slate-500 mb-4">Añadir una nota de retroalimentación o actualización a una actividad.</p>
 
-                        <form method="POST" action="{{ route('monitoring.comments.store') }}" class="space-y-3">
+                        <form method="POST" action="{{ route('monitoring.comments.store') }}" enctype="multipart/form-data" class="space-y-3">
                             @csrf
 
                             <div>
@@ -147,19 +149,20 @@
                                 <select name="activity_id" required class="w-full text-xs rounded-lg border-slate-200">
                                     <option value="">-- Seleccionar Actividad --</option>
                                     @foreach ($activities as $act)
-                                        <option value="{{ $act->id }}">{{ $act->project?->code }}: {{ $act->title }} ({{ $act->progress }}%)</option>
+                                        <option value="{{ $act->id }}">{{ $act->project?->code }}: {{ $act->title }} ({{ $act->status === 'pendiente' ? 'Por empezar' : ucfirst(str_replace('_', ' ', $act->status)) }})</option>
                                     @endforeach
                                 </select>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Progreso (%)</label>
-                                <input type="number" name="progress" min="0" max="100" placeholder="Sin cambios" class="w-full text-xs rounded-lg border-slate-200">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Comentario *</label>
+                                <textarea name="comment" rows="3" placeholder="Escribe una nota sobre la actividad..." required class="w-full text-xs rounded-lg border-slate-200"></textarea>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Comentario *</label>
-                                <textarea name="comment" rows="3" placeholder="Escribe la observación sobre la actividad..." required class="w-full text-xs rounded-lg border-slate-200"></textarea>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Imagen de evidencia (opcional)</label>
+                                <input type="file" name="evidence" accept="image/jpeg,image/png,image/webp" class="w-full text-xs rounded-lg border border-slate-200 p-2">
+                                <p class="mt-1 text-[10px] text-slate-400">JPG, PNG o WebP; máximo 5 MB.</p>
                             </div>
 
                             <button type="submit" class="w-full py-2 bg-[#1573F7] hover:bg-[#0d62d9] text-white text-xs font-bold rounded-lg shadow-sm transition">

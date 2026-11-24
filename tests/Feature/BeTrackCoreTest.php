@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Activity;
+use App\Models\ActivityComment;
 use App\Models\Project;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class BeTrackCoreTest extends TestCase
@@ -76,8 +80,7 @@ class BeTrackCoreTest extends TestCase
             'activities' => [[
                 'title' => 'Actividad de arranque',
                 'priority' => 'alta',
-                'status' => 'en_progreso',
-                'progress' => 35,
+                'status' => 'en_revision',
             ]],
         ]);
 
@@ -87,9 +90,10 @@ class BeTrackCoreTest extends TestCase
         $this->assertDatabaseHas('activities', [
             'project_id' => $project->id,
             'title' => 'Actividad de arranque',
-            'progress' => 35,
-            'status' => 'en_progreso',
+            'status' => 'en_revision',
         ]);
+        $this->assertFalse(Schema::hasColumn('activities', 'progress'));
+        $this->assertTrue(Schema::hasColumn('activity_comments', 'progress_reported'));
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('activity_checklist_items'));
     }
 
@@ -110,7 +114,6 @@ class BeTrackCoreTest extends TestCase
             'status' => 'en_progreso',
             'due_date' => now()->addDays(10)->toDateString(),
             'assignees' => [$this->developer->id],
-            'progress' => 80,
         ]);
 
         $postResponse->assertStatus(302);
@@ -118,50 +121,110 @@ class BeTrackCoreTest extends TestCase
         $this->assertDatabaseHas('activity_user', [
             'user_id' => $this->developer->id,
         ]);
-        $this->assertDatabaseHas('activities', [
-            'title' => 'Diseñar interfaz de usuario',
-            'progress' => 80,
-            'status' => 'en_progreso',
-        ]);
+        $this->assertDatabaseHas('activities', ['title' => 'Diseñar interfaz de usuario', 'status' => 'en_progreso']);
     }
 
-    public function test_activity_progress_can_be_updated_manually(): void
+    public function test_activity_status_updates_drive_project_completion(): void
     {
         $project = Project::create([
-            'code' => 'BP-PROGRESS-01',
-            'name' => 'Proyecto Progreso Manual',
+            'code' => 'BP-STATUS-01',
+            'name' => 'Proyecto por estados',
             'status' => 'en_progreso',
             'created_by' => $this->admin->id,
         ]);
 
         $this->actingAs($this->admin)->post('/activities', [
             'project_id' => $project->id,
-            'title' => 'Actividad con progreso manual',
+            'title' => 'Actividad por estado',
             'priority' => 'media',
             'status' => 'pendiente',
-            'progress' => 0,
+            'assignees' => [$this->developer->id],
         ])->assertRedirect();
 
-        $activity = Activity::where('title', 'Actividad con progreso manual')->firstOrFail();
+        $activity = Activity::where('title', 'Actividad por estado')->firstOrFail();
+        $otherActivity = Activity::create([
+            'project_id' => $project->id,
+            'title' => 'Otra actividad pendiente',
+            'priority' => 'baja',
+            'status' => 'pendiente',
+        ]);
+        $otherActivity->assignees()->sync([$this->developer->id]);
+        $this->assertSame(0, $project->fresh()->calculated_progress);
+
         $this->actingAs($this->developer)->put(route('activities.update', $activity), [
             'title' => $activity->title,
             'priority' => 'media',
-            'status' => 'en_progreso',
-            'progress' => 67,
+            'status' => 'en_revision',
+            'assignees' => [$this->developer->id],
         ])->assertRedirect();
-        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'progress' => 67, 'status' => 'en_progreso']);
+        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'status' => 'en_revision']);
+        $this->assertSame(0, $project->fresh()->calculated_progress);
 
         $this->actingAs($this->developer)->put(route('activities.update', $activity), [
             'title' => $activity->title,
             'priority' => 'media',
-            'status' => 'en_progreso',
-            'progress' => 100,
+            'status' => 'completada',
+            'assignees' => [$this->developer->id],
         ])->assertRedirect();
-        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'progress' => 100, 'status' => 'completada']);
+        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'status' => 'completada']);
+        $this->assertSame(50, $project->fresh()->calculated_progress);
     }
 
-    public function test_monitoring_can_update_manual_progress_with_a_comment(): void
+    public function test_activity_requires_at_least_one_assignee_on_create_and_update(): void
     {
+        $project = Project::create([
+            'code' => 'BP-ASSIGNEE-01',
+            'name' => 'Proyecto Encargados',
+            'status' => 'en_progreso',
+            'created_by' => $this->admin->id,
+        ]);
+
+        // Fails when creating without assignees
+        $response = $this->actingAs($this->admin)->post('/activities', [
+            'project_id' => $project->id,
+            'title' => 'Actividad sin encargado',
+            'priority' => 'alta',
+            'status' => 'pendiente',
+            'assignees' => [],
+        ]);
+        $response->assertSessionHasErrors('assignees');
+
+        // Succeeds when at least 1 assignee is provided
+        $createResponse = $this->actingAs($this->admin)->post('/activities', [
+            'project_id' => $project->id,
+            'title' => 'Actividad con encargado',
+            'priority' => 'alta',
+            'status' => 'pendiente',
+            'assignees' => [$this->developer->id],
+        ]);
+        $createResponse->assertRedirect();
+        $activity = Activity::where('title', 'Actividad con encargado')->firstOrFail();
+        $this->assertTrue($activity->assignees->contains($this->developer));
+
+        // Fails when updating and trying to empty assignees
+        $updateFail = $this->actingAs($this->developer)->put(route('activities.update', $activity), [
+            'title' => 'Actividad con encargado',
+            'priority' => 'alta',
+            'status' => 'en_progreso',
+            'assignees' => [],
+        ]);
+        $updateFail->assertSessionHasErrors('assignees');
+
+        // Succeeds when adding another assignee or switching
+        $updateSuccess = $this->actingAs($this->developer)->put(route('activities.update', $activity), [
+            'title' => 'Actividad con encargado',
+            'priority' => 'alta',
+            'status' => 'en_progreso',
+            'assignees' => [$this->developer->id, $this->admin->id],
+        ]);
+        $updateSuccess->assertRedirect();
+        $this->assertCount(2, $activity->fresh()->assignees);
+    }
+
+    public function test_activity_comments_can_store_and_open_private_image_evidence(): void
+    {
+        Storage::fake('local');
+
         $project = Project::create([
             'code' => 'BP-MON-01',
             'name' => 'Proyecto Seguimiento',
@@ -173,20 +236,38 @@ class BeTrackCoreTest extends TestCase
             'title' => 'Actividad de seguimiento',
             'priority' => 'media',
             'status' => 'en_progreso',
-            'progress' => 20,
         ]);
 
         $this->actingAs($this->admin)->post(route('monitoring.comments.store'), [
             'activity_id' => $activity->id,
-            'comment' => 'Se completó una parte del trabajo.',
-            'progress' => 65,
+            'comment' => 'Se adjunta la captura como evidencia.',
+            'evidence' => UploadedFile::fake()->createWithContent(
+                'captura.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=')
+            ),
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'progress' => 65]);
-        $this->assertDatabaseHas('activity_comments', [
-            'activity_id' => $activity->id,
-            'progress_reported' => 65,
-        ]);
+        $comment = ActivityComment::where('activity_id', $activity->id)->firstOrFail();
+        $this->assertSame('captura.png', $comment->evidence_name);
+        $this->assertArrayNotHasKey('progress_reported', $comment->toArray());
+        Storage::disk('local')->assertExists($comment->evidence_path);
+        auth()->logout();
+        $this->get(route('activities.comments.evidence', $comment))->assertRedirect(route('login'));
+        $this->actingAs($this->admin)
+            ->get(route('activities.comments.evidence', $comment))
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $token = $this->admin->createToken('evidence-test')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson("/api/v1/activity-comments/{$comment->id}/evidence")
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->assertDatabaseHas('activities', ['id' => $activity->id, 'status' => 'en_progreso']);
+        $this->actingAs($this->admin)->get('/activities')
+            ->assertOk()
+            ->assertSee('Evidencia')
+            ->assertSee('captura.png')
+            ->assertDontSee('Progreso (%)');
     }
 
     public function test_mobile_api_workflow(): void
@@ -214,7 +295,6 @@ class BeTrackCoreTest extends TestCase
             'title' => 'Tarea móvil',
             'priority' => 'media',
             'status' => 'en_progreso',
-            'progress' => 0,
         ]);
         $activity->assignees()->attach($this->developer->id);
         // 3. Get my activities from mobile
@@ -225,21 +305,20 @@ class BeTrackCoreTest extends TestCase
         $this->assertEquals(1, $activitiesResponse->json('count'));
         $activitiesResponse->assertJsonMissingPath('data.0.checklist_items');
 
-        // 4. Report manual progress from mobile
+        // 4. Update status from mobile
         $updateResponse = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->postJson("/api/v1/activities/{$activity->id}/progress", [
-                'progress' => 75,
-                'comment' => 'El integrante completó la tarea desde la app móvil.',
+            ->postJson("/api/v1/activities/{$activity->id}/status", [
+                'status' => 'en_revision',
+                'comment' => 'La actividad está lista para revisión.',
             ]);
 
         $updateResponse->assertStatus(200);
         $this->assertDatabaseHas('activities', [
             'id' => $activity->id,
-            'progress' => 75,
+            'status' => 'en_revision',
         ]);
         $this->assertDatabaseHas('activity_comments', [
             'activity_id' => $activity->id,
-            'progress_reported' => 75,
             'source' => 'mobile',
         ]);
     }

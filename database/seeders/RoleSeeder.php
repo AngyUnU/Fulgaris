@@ -26,7 +26,7 @@ class RoleSeeder extends Seeder
             [
                 'name' => 'desarrollador',
                 'label' => 'Desarrollador / Integrante',
-                'description' => 'Consulta de actividades asignadas, actualización de porcentaje de avance, registro de comentarios y notas de trabajo.',
+                'description' => 'Consulta de actividades asignadas, actualización de estados y registro de comentarios y evidencias.',
             ],
             [
                 'name' => 'qa',

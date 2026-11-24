@@ -12,7 +12,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['system-ui', 'Segoe UI', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 betrack: {

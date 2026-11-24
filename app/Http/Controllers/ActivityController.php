@@ -8,8 +8,10 @@ use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActivityController extends Controller
 {
@@ -58,26 +60,20 @@ class ActivityController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'priority' => ['required', 'in:baja,media,alta,urgente'],
-            'status' => ['required', 'in:pendiente,en_progreso,completada,atrasada'],
-            'progress' => ['required', 'integer', 'min:0', 'max:100'],
+            'status' => ['required', 'in:pendiente,en_progreso,en_revision,completada,atrasada'],
             'due_date' => ['nullable', 'date'],
-            'assignees' => ['nullable', 'array'],
+            'assignees' => ['required', 'array', 'min:1'],
             'assignees.*' => ['exists:users,id'],
+        ], [
+            'assignees.required' => 'Debe asignar al menos un encargado a la actividad.',
+            'assignees.min' => 'Debe asignar al menos un encargado a la actividad.',
+            'assignees.*.exists' => 'Uno de los encargados seleccionados no es válido.',
         ]);
 
         $validated['created_by'] = auth()->id();
-        $assignees = $validated['assignees'] ?? [];
+        $validated['completed_at'] = $validated['status'] === 'completada' ? now() : null;
+        $assignees = $validated['assignees'];
         unset($validated['assignees']);
-
-        if ($validated['progress'] == 100) {
-            $validated['status'] = 'completada';
-            $validated['completed_at'] = now();
-        } else {
-            $validated['completed_at'] = null;
-            if ($validated['status'] === 'completada') {
-                $validated['status'] = 'en_progreso';
-            }
-        }
 
         $activity = Activity::create($validated);
         $activity->assignees()->sync($assignees);
@@ -91,42 +87,36 @@ class ActivityController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'priority' => ['required', 'in:baja,media,alta,urgente'],
-            'status' => ['required', 'in:pendiente,en_progreso,completada,atrasada'],
-            'progress' => ['required', 'integer', 'min:0', 'max:100'],
+            'status' => ['required', 'in:pendiente,en_progreso,en_revision,completada,atrasada'],
             'due_date' => ['nullable', 'date'],
-            'assignees' => ['nullable', 'array'],
+            'assignees' => ['required', 'array', 'min:1'],
             'assignees.*' => ['exists:users,id'],
-            'comment' => ['nullable', 'string'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+            'evidence' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'assignees.required' => 'Debe haber al menos un encargado asignado a la actividad.',
+            'assignees.min' => 'Debe haber al menos un encargado asignado a la actividad.',
+            'assignees.*.exists' => 'Uno de los encargados seleccionados no es válido.',
         ]);
 
-        if ($validated['progress'] == 100) {
-            $validated['status'] = 'completada';
-            $validated['completed_at'] = $activity->completed_at ?? now();
-        } else {
-            $validated['completed_at'] = null;
-            if ($validated['status'] === 'completada') {
-                $validated['status'] = 'en_progreso';
-            }
-        }
+        $validated['completed_at'] = $validated['status'] === 'completada'
+            ? ($activity->completed_at ?? now())
+            : null;
 
-        $assignees = $validated['assignees'] ?? null;
+        $assignees = $validated['assignees'];
         $comment = $validated['comment'] ?? null;
-        unset($validated['assignees'], $validated['comment']);
+        unset($validated['assignees'], $validated['comment'], $validated['evidence']);
 
         $activity->update($validated);
+        $activity->assignees()->sync($assignees);
 
-        if ($assignees !== null) {
-            $activity->assignees()->sync($assignees);
-        }
-
-        if (! empty($comment)) {
-            ActivityComment::create([
+        if ($comment || $request->hasFile('evidence')) {
+            ActivityComment::createWithEvidence([
                 'activity_id' => $activity->id,
                 'user_id' => auth()->id(),
-                'comment' => $comment,
-                'progress_reported' => $activity->progress,
+                'comment' => $comment ?: 'Evidencia adjunta.',
                 'source' => 'web',
-            ]);
+            ], $request->file('evidence'));
         }
 
         return back()->with('status', 'Actividad actualizada.');
@@ -145,8 +135,24 @@ class ActivityController extends Controller
             ]);
         }
 
+        $evidencePaths = ActivityComment::where('activity_id', $activity->id)
+            ->whereNotNull('evidence_path')
+            ->pluck('evidence_path');
+        Storage::disk('local')->delete($evidencePaths->all());
         $activity->delete();
 
         return back()->with('status', 'Actividad eliminada.');
+    }
+
+    public function evidence(ActivityComment $comment): StreamedResponse
+    {
+        abort_unless($comment->evidence_path, 404);
+
+        return Storage::disk('local')->response(
+            $comment->evidence_path,
+            $comment->evidence_name,
+            ['X-Content-Type-Options' => 'nosniff'],
+            'inline'
+        );
     }
 }

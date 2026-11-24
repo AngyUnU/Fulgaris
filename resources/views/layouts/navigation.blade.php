@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
+<nav x-data="{ open: false }" class="bg-white border-b border-slate-200">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -62,7 +62,7 @@
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <div class="me-3 text-right">
                     <span class="text-[11px] block text-slate-400 font-medium">Gestión de proyectos</span>
-                    <span class="text-xs font-semibold text-[#2F295B]">BeTrack • Web</span>
+                    <span class="text-xs font-semibold text-[#2F295B]">ArkanA • Web</span>
                 </div>
 
                 <x-dropdown align="right" width="48">

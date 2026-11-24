@@ -48,17 +48,20 @@ class Project extends Model
     }
 
     /**
-     * Calcula el progreso ponderado del proyecto en base a sus actividades.
+     * El porcentaje del proyecto corresponde a las actividades completadas.
      */
     public function getCalculatedProgressAttribute(): int
     {
-        $count = $this->activities()->count();
-        if ($count === 0) {
+        $activities = $this->relationLoaded('activities')
+            ? $this->activities
+            : $this->activities()->get(['id', 'status']);
+        $total = $activities->count();
+
+        if ($total === 0) {
             return 0;
         }
 
-        $avg = $this->activities()->avg('progress');
-        return (int) round($avg ?? 0);
+        return (int) round(($activities->where('status', 'completada')->count() / $total) * 100);
     }
 
     /**

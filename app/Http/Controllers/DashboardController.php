@@ -26,7 +26,9 @@ class DashboardController extends Controller
             return $act->status !== 'completada' && $act->due_date && $act->due_date->toDateString() < $today;
         })->count();
 
-        $overallProgress = $totalActivities > 0 ? (int) round($activities->avg('progress')) : 0;
+        $overallProgress = $totalActivities > 0
+            ? (int) round(($completedActivities / $totalActivities) * 100)
+            : 0;
         $totalAgreements = Agreement::count();
         $pendingAgreements = Agreement::whereIn('status', ['pendiente', 'en_cumplimiento'])->count();
 

@@ -41,8 +41,9 @@
                     <div>
                         <select name="status" onchange="this.form.submit()" class="w-full text-xs rounded-lg border-slate-200 focus:border-[#1573F7] focus:ring-[#1573F7]">
                             <option value="">Todos los estados</option>
-                            <option value="pendiente" {{ request('status') === 'pendiente' ? 'selected' : '' }}>Pendiente</option>
+                            <option value="pendiente" {{ request('status') === 'pendiente' ? 'selected' : '' }}>Por empezar</option>
                             <option value="en_progreso" {{ request('status') === 'en_progreso' ? 'selected' : '' }}>En Progreso</option>
+                            <option value="en_revision" {{ request('status') === 'en_revision' ? 'selected' : '' }}>En revisión</option>
                             <option value="completada" {{ request('status') === 'completada' ? 'selected' : '' }}>Completada</option>
                             <option value="atrasada" {{ request('status') === 'atrasada' ? 'selected' : '' }}>Atrasada</option>
                         </select>
@@ -87,8 +88,8 @@
                                 <th class="p-4">Integrantes Asignados</th>
                                 <th class="p-4">Prioridad</th>
                                 <th class="p-4">Compromiso</th>
-                                <th class="p-4">Progreso</th>
                                 <th class="p-4">Estado</th>
+                                <th class="p-4">Evidencia</th>
                                 <th class="p-4 text-right">Acción</th>
                             </tr>
                         </thead>
@@ -104,9 +105,11 @@
                                     $statBadge = match($act->status) {
                                         'completada' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
                                         'en_progreso' => 'bg-blue-50 text-blue-700 border-blue-200',
+                                        'en_revision' => 'bg-purple-50 text-purple-700 border-purple-200',
                                         'pendiente' => 'bg-amber-50 text-amber-700 border-amber-200',
                                         default => 'bg-red-50 text-red-700 border-red-200',
                                     };
+                                    $evidenceComments = $act->comments->whereNotNull('evidence_path');
                                     $isOverdue = $act->is_overdue;
                                 @endphp
                                 <tr class="hover:bg-slate-50/70 transition">
@@ -144,22 +147,23 @@
                                             <span class="block text-[10px] text-red-500 font-semibold">¡Atrasada!</span>
                                         @endif
                                     </td>
-                                    <td class="p-4 w-36">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div class="h-full bg-gradient-to-r from-[#1573F7] to-[#5F3AD7] rounded-full" style="width: {{ $act->progress }}%"></div>
-                                            </div>
-                                            <span class="font-bold text-[11px] w-8 text-right">{{ $act->progress }}%</span>
-                                        </div>
-                                    </td>
                                     <td class="p-4 whitespace-nowrap">
                                         <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border {{ $statBadge }}">
-                                            {{ ucfirst(str_replace('_', ' ', $act->status)) }}
+                                            {{ $act->status === 'pendiente' ? 'Por empezar' : ucfirst(str_replace('_', ' ', $act->status)) }}
                                         </span>
+                                    </td>
+                                    <td class="p-4 min-w-32">
+                                        @forelse ($evidenceComments as $evidenceComment)
+                                            <a href="{{ route('activities.comments.evidence', $evidenceComment) }}" target="_blank" rel="noopener" class="block text-[11px] text-[#1573F7] hover:underline truncate max-w-36" title="{{ $evidenceComment->evidence_name }}">
+                                                {{ $evidenceComment->evidence_name }}
+                                            </a>
+                                        @empty
+                                            <span class="text-[11px] text-slate-400">Sin archivos</span>
+                                        @endforelse
                                     </td>
                                     <td class="p-4 text-right whitespace-nowrap">
                                         <button type="button"
-                                                onclick="openEditModal({{ $act->id }}, @js($act->title), @js($act->description), @js($act->priority), @js($act->due_date ? $act->due_date->format('Y-m-d') : ''), @js($act->status), {{ $act->progress }})"
+                                                onclick="openEditModal({{ $act->id }}, @js($act->title), @js($act->description), @js($act->priority), @js($act->due_date ? $act->due_date->format('Y-m-d') : ''), @js($act->status), @js($act->assignees->pluck('id')))"
                                                 class="px-2.5 py-1 rounded-md text-xs font-bold text-[#1573F7] hover:bg-blue-50 transition">
                                             Actualizar
                                         </button>
@@ -264,20 +268,15 @@
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Progreso (%)</label>
-                        <input type="number" name="progress" min="0" max="100" value="0" required class="w-full text-xs rounded-lg border-slate-200">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
-                        <select name="status" required class="w-full text-xs rounded-lg border-slate-200">
-                            <option value="pendiente">Pendiente</option>
-                            <option value="en_progreso">En progreso</option>
-                            <option value="completada">Completada</option>
-                            <option value="atrasada">Atrasada</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
+                    <select name="status" required class="w-full text-xs rounded-lg border-slate-200">
+                        <option value="pendiente">Por empezar</option>
+                        <option value="en_progreso">En progreso</option>
+                        <option value="en_revision">En revisión</option>
+                        <option value="completada">Completada</option>
+                        <option value="atrasada">Atrasada</option>
+                    </select>
                 </div>
 
                 <div>
@@ -286,13 +285,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Responsables (Integrantes del equipo)</label>
-                    <select name="assignees[]" multiple class="w-full text-xs rounded-lg border-slate-200 h-24">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                        Encargados de la actividad * <span class="text-red-500 font-bold">(Mínimo 1 obligatorio)</span>
+                    </label>
+                    <select name="assignees[]" id="create-assignees" multiple required class="w-full text-xs rounded-lg border-slate-200 h-28 focus:border-[#1573F7] focus:ring-[#1573F7]">
                         @foreach ($users as $u)
                             <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->role?->label }})</option>
                         @endforeach
                     </select>
-                    <p class="text-[10px] text-slate-400 mt-1">Mantén presionado Ctrl (o Cmd) para seleccionar varios integrantes.</p>
+                    <p class="text-[10px] text-slate-400 mt-1">Mantén presionado Ctrl (o Cmd) para seleccionar uno o varios integrantes.</p>
                 </div>
 
                 <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -307,7 +308,7 @@
         </div>
     </div>
 
-    <!-- Modal Actualizar Progreso / Comentario -->
+    <!-- Modal Actualizar Actividad -->
     <div id="modal-update-actividad" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -315,7 +316,7 @@
                 <button type="button" onclick="document.getElementById('modal-update-actividad').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
-            <form id="form-update-actividad" method="POST" action="" class="mt-4 space-y-4">
+            <form id="form-update-actividad" method="POST" action="" enctype="multipart/form-data" class="mt-4 space-y-4">
                 @csrf
                 @method('PUT')
 
@@ -339,20 +340,15 @@
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Progreso (%)</label>
-                        <input type="number" name="progress" id="edit-progress" min="0" max="100" required class="w-full text-xs rounded-lg border-slate-200">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
-                        <select name="status" id="edit-status" required class="w-full text-xs rounded-lg border-slate-200">
-                            <option value="pendiente">Pendiente</option>
-                            <option value="en_progreso">En progreso</option>
-                            <option value="completada">Completada</option>
-                            <option value="atrasada">Atrasada</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
+                    <select name="status" id="edit-status" required class="w-full text-xs rounded-lg border-slate-200">
+                        <option value="pendiente">Por empezar</option>
+                        <option value="en_progreso">En progreso</option>
+                        <option value="en_revision">En revisión</option>
+                        <option value="completada">Completada</option>
+                        <option value="atrasada">Atrasada</option>
+                    </select>
                 </div>
 
                 <div>
@@ -361,8 +357,26 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Comentario o Nota de Seguimiento</label>
-                    <textarea name="comment" rows="3" placeholder="Registrar avance o acuerdo sobre esta actividad..." class="w-full text-xs rounded-lg border-slate-200"></textarea>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                        Encargados de la actividad * <span class="text-red-500 font-bold">(Mínimo 1 obligatorio)</span>
+                    </label>
+                    <select name="assignees[]" id="edit-assignees" multiple required class="w-full text-xs rounded-lg border-slate-200 h-28 focus:border-[#1573F7] focus:ring-[#1573F7]">
+                        @foreach ($users as $u)
+                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->role?->label }})</option>
+                        @endforeach
+                    </select>
+                    <p class="text-[10px] text-slate-400 mt-1">Selecciona uno o más encargados. No se puede dejar el campo sin encargados.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Comentario o nota</label>
+                    <textarea name="comment" rows="3" placeholder="Escribe una nota sobre esta actividad..." class="w-full text-xs rounded-lg border-slate-200"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Imagen de evidencia (opcional)</label>
+                    <input type="file" name="evidence" accept="image/jpeg,image/png,image/webp" class="w-full text-xs rounded-lg border border-slate-200 p-2">
+                    <p class="mt-1 text-[10px] text-slate-400">JPG, PNG o WebP; máximo 5 MB.</p>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -387,7 +401,7 @@
             document.getElementById('delete-activity-admin-password').focus();
         }
 
-        function openEditModal(id, title, description, priority, dueDate, status, progress) {
+        function openEditModal(id, title, description, priority, dueDate, status, assigneeIds = []) {
             document.getElementById('form-update-actividad').action = '/activities/' + id;
             document.getElementById('update-modal-title').innerText = title;
             document.getElementById('edit-title').value = title;
@@ -395,8 +409,32 @@
             document.getElementById('edit-priority').value = priority;
             document.getElementById('edit-due-date').value = dueDate;
             document.getElementById('edit-status').value = status;
-            document.getElementById('edit-progress').value = progress;
+
+            const select = document.getElementById('edit-assignees');
+            if (select) {
+                const selectedIds = Array.isArray(assigneeIds) ? assigneeIds.map(Number) : [];
+                Array.from(select.options).forEach(opt => {
+                    opt.selected = selectedIds.includes(Number(opt.value));
+                });
+            }
+
             document.getElementById('modal-update-actividad').classList.remove('hidden');
         }
+
+        document.getElementById('form-update-actividad')?.addEventListener('submit', function(e) {
+            const select = document.getElementById('edit-assignees');
+            if (select && select.selectedOptions.length === 0) {
+                e.preventDefault();
+                alert('Debe asignar al menos un encargado a la actividad.');
+            }
+        });
+
+        document.querySelector('#modal-actividad form')?.addEventListener('submit', function(e) {
+            const select = document.getElementById('create-assignees');
+            if (select && select.selectedOptions.length === 0) {
+                e.preventDefault();
+                alert('Debe asignar al menos un encargado a la actividad.');
+            }
+        });
     </script>
 </x-app-layout>

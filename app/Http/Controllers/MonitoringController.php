@@ -53,29 +53,17 @@ class MonitoringController extends Controller
     {
         $validated = $request->validate([
             'activity_id' => ['required', 'exists:activities,id'],
-            'comment' => ['required', 'string'],
-            'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'comment' => ['required', 'string', 'max:2000'],
+            'evidence' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $activity = Activity::findOrFail($validated['activity_id']);
-        if (isset($validated['progress'])) {
-            $isComplete = $validated['progress'] == 100;
-            $activity->update([
-                'progress' => $validated['progress'],
-                'status' => $isComplete
-                    ? 'completada'
-                    : ($activity->status === 'completada' ? 'en_progreso' : $activity->status),
-                'completed_at' => $isComplete ? ($activity->completed_at ?? now()) : null,
-            ]);
-        }
-
-        ActivityComment::create([
+        ActivityComment::createWithEvidence([
             'activity_id' => $activity->id,
             'user_id' => auth()->id(),
             'comment' => $validated['comment'],
-            'progress_reported' => $validated['progress'] ?? $activity->progress,
             'source' => 'web',
-        ]);
+        ], $request->file('evidence'));
 
         return back()->with('status', 'Comentario de seguimiento registrado exitosamente.');
     }
